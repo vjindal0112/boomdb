@@ -5,7 +5,8 @@ pub mod utils;
 use std::env;
 use std::path::PathBuf;
 
-use sqlparser::ast::Statement::{CreateTable, Query};
+use sqlparser::ast::SetExpr;
+use sqlparser::ast::Statement::{CreateTable, Insert, Query};
 use sqlparser::dialect::GenericDialect;
 use sqlparser::parser::Parser;
 
@@ -30,8 +31,21 @@ fn main() {
             CreateTable { name, columns, .. } => {
                 commands::create_table(name, columns, &data_base_path);
             }
+            Insert {
+                table_name,
+                columns,
+                source,
+                ..
+            } => match *source.body {
+                SetExpr::Values(values) => {
+                    commands::insert(table_name, columns, values.rows[0].clone(), &data_base_path);
+                }
+                _ => {
+                    panic!("There shouldn't be something other than values in an insert statement");
+                }
+            },
             _ => {
-                println!("Not supported yet");
+                panic!("Not supported yet");
             }
         }
     }
