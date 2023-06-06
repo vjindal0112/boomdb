@@ -1,44 +1,18 @@
 use core::panic;
-use std::fmt::Display;
+
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 
-use prettytable::{Cell, Row, Table};
 use sqlparser::ast::{ColumnDef, ObjectName, SelectItem, SetExpr};
 
 use crate::common::Column;
+use crate::utils::make_printable_table;
 
-fn make_printable_table<I, K: Display>(
-    header: Vec<String>,
-    lines: I,
-    columns: Vec<Column>,
-) -> Result<Table, String>
-where
-    I: IntoIterator<Item = Result<String, K>>,
-{
-    let mut table = Table::new();
-    table.add_row(Row::new(
-        columns
-            .iter()
-            .map(|i| header[i.index].clone())
-            .map(|s| Cell::new(&s))
-            .collect(),
-    ));
-    for line in lines {
-        let line = line.map_err(|e| e.to_string())?;
-        let raw_row_data: Vec<&str> = line.split(",").collect();
-        let row_data: Vec<Cell> = columns
-            .iter()
-            .map(|i| raw_row_data[i.index])
-            .map(|s| Cell::new(s))
-            .collect();
-        table.add_row(Row::new(row_data));
-    }
-    Ok(table)
-}
-
-fn parse_columns(existing_column_names: Vec<String>, projection: Vec<SelectItem>) -> Vec<Column> {
+fn parse_select_columns(
+    existing_column_names: Vec<String>,
+    projection: Vec<SelectItem>,
+) -> Vec<Column> {
     let mut columns: Vec<Column> = vec![];
     for item in projection {
         let value = match item {
@@ -113,7 +87,7 @@ pub fn select(query: sqlparser::ast::Query, data_base_path: &PathBuf) -> () {
         None => return,
     };
     let raw_headers: Vec<String> = raw_header_line.split(",").map(String::from).collect();
-    let columns = parse_columns(raw_headers.clone(), projection);
+    let columns = parse_select_columns(raw_headers.clone(), projection);
     match make_printable_table(raw_headers, lines, columns) {
         Ok(table) => table.printstd(),
         Err(_) => println!("Error while printing table"),

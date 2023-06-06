@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod common;
+pub mod utils;
 
 use std::env;
 use std::path::PathBuf;
