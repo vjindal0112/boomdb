@@ -1,5 +1,5 @@
 use core::panic;
-use csv::{Reader, Writer, WriterBuilder};
+use csv::{Reader, WriterBuilder};
 use std::collections::HashSet;
 
 use std::fs::{File, OpenOptions};
