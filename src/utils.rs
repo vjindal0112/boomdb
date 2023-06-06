@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, path::PathBuf};
 
 use prettytable::{Cell, Row, Table};
 
@@ -31,4 +31,15 @@ where
         table.add_row(Row::new(row_data));
     }
     Ok(table)
+}
+
+pub fn check_table_name(table_name: String, data_base_path: &PathBuf) -> Result<PathBuf, String> {
+    let mut file_name = String::from(table_name.to_string());
+    file_name.push_str(".txt");
+    let file_path_buf = data_base_path.clone().join(&file_name);
+    let file_path = file_path_buf.as_path();
+    if !file_path.exists() {
+        return Err("Table does not exist".to_string());
+    }
+    Ok(file_path.to_path_buf())
 }
