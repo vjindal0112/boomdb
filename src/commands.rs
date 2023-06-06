@@ -7,10 +7,7 @@ use std::path::PathBuf;
 use prettytable::{Cell, Row, Table};
 use sqlparser::ast::{ColumnDef, ObjectName, SelectItem, SetExpr};
 
-struct Column {
-    index: usize,
-    name: String,
-}
+use crate::common::Column;
 
 fn make_printable_table<I, K: Display>(
     header: Vec<String>,
