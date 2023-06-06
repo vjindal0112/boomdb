@@ -1,13 +1,15 @@
 use core::panic;
+use csv::{Reader, Writer, WriterBuilder};
+use std::collections::HashSet;
 
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 
-use sqlparser::ast::{ColumnDef, ObjectName, SelectItem, SetExpr};
+use sqlparser::ast::{ColumnDef, Expr, Ident, ObjectName, Query, SelectItem, SetExpr};
 
 use crate::common::Column;
-use crate::utils::make_printable_table;
+use crate::utils::{check_table_name, make_printable_table};
 
 fn parse_select_columns(
     existing_column_names: Vec<String>,
@@ -58,7 +60,47 @@ fn parse_select_columns(
     columns
 }
 
-pub fn select(query: sqlparser::ast::Query, data_base_path: &PathBuf) -> () {
+pub fn insert(
+    table_name: ObjectName,
+    columns: Vec<Ident>,
+    values: Vec<Expr>,
+    data_base_path: &PathBuf,
+) -> () {
+    let file_name = match check_table_name(table_name.to_string(), data_base_path) {
+        Ok(file_path) => file_path,
+        Err(_) => panic!("Table does not exist"),
+    };
+    let mut reader = Reader::from_path(file_name.clone()).unwrap();
+    let headers = reader.headers().unwrap();
+    let mut column_set: HashSet<String> = HashSet::new();
+    for column in columns {
+        column_set.insert(column.value);
+    }
+    for header in headers {
+        if !column_set.contains(header) {
+            panic!("Insert statement doesn't contain all necessary columns");
+        }
+    }
+    let file = OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(file_name.clone())
+        .unwrap();
+    let mut writer = WriterBuilder::new()
+        .has_headers(true) // Set to true if the file has headers
+        .from_writer(file);
+    let mut row: Vec<String> = vec![];
+    for value in values {
+        match value {
+            Expr::Value(val) => row.push(val.to_string()), // TODO: check if to_string works here
+            _ => panic!("Only values are supported in insert statement"),
+        }
+    }
+    writer.write_record(row).unwrap();
+    writer.flush().unwrap();
+}
+
+pub fn select(query: Query, data_base_path: &PathBuf) -> () {
     let select_query = match *query.body {
         // Assuming body is an Enum and one of its variant is Select
         SetExpr::Select(select_struct) => select_struct,
@@ -69,14 +111,10 @@ pub fn select(query: sqlparser::ast::Query, data_base_path: &PathBuf) -> () {
         _ => panic!("Expected a table name"),
     };
     let projection = select_query.projection;
-    let mut file_name = String::from(table_name.to_string());
-    file_name.push_str(".txt");
-    let file_path_buf = data_base_path.clone().join(&file_name);
-    let file_path = file_path_buf.as_path();
-    if !file_path.exists() {
-        println!("Table {} does not exist", table_name);
-        return;
-    }
+    let file_path = match check_table_name(table_name.to_string(), data_base_path) {
+        Ok(file_path) => file_path,
+        Err(_) => panic!("Table does not exist"),
+    };
     let file = File::open(file_path).unwrap();
     let reader = BufReader::new(file);
     let mut lines = reader.lines();
@@ -90,7 +128,7 @@ pub fn select(query: sqlparser::ast::Query, data_base_path: &PathBuf) -> () {
     let columns = parse_select_columns(raw_headers.clone(), projection);
     match make_printable_table(raw_headers, lines, columns) {
         Ok(table) => table.printstd(),
-        Err(_) => println!("Error while printing table"),
+        Err(_) => panic!("Error while printing table"),
     }
 }
 
