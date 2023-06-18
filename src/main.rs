@@ -7,7 +7,7 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 
 use sqlparser::ast::SetExpr;
-use sqlparser::ast::Statement::{CreateTable, Insert, Query};
+use sqlparser::ast::Statement::{CreateTable, Delete, Insert, Query};
 use sqlparser::dialect::GenericDialect;
 use sqlparser::parser::Parser;
 
@@ -54,6 +54,14 @@ fn main() {
                             panic!("There shouldn't be something other than values in an insert statement");
                         }
                     }
+                }
+                Delete {
+                    tables,
+                    from,
+                    selection,
+                    ..
+                } => {
+                    panic!("Delete supported yet");
                 }
                 _ => {
                     panic!("Not supported yet");
