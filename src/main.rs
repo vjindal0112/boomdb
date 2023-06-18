@@ -14,8 +14,8 @@ use sqlparser::parser::Parser;
 fn main() {
     let mut data_base_path: PathBuf = env::current_dir().expect("Failed to get current directory");
     data_base_path.push("data");
-    let mut line = String::new();
     loop {
+        let mut line = String::new();
         println!("");
         print!("> ");
         io::stdout().flush().unwrap();
