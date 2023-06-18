@@ -6,7 +6,9 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 
-use sqlparser::ast::{ColumnDef, Expr, Ident, ObjectName, Query, SelectItem, SetExpr};
+use sqlparser::ast::{
+    ColumnDef, Expr, Ident, ObjectName, Query, SelectItem, SetExpr, TableWithJoins,
+};
 
 use crate::common::Column;
 use crate::utils::{check_table_name, make_printable_table};
@@ -130,6 +132,14 @@ pub fn select(query: Query, data_base_path: &PathBuf) -> () {
         Ok(table) => table.printstd(),
         Err(_) => panic!("Error while printing table"),
     }
+}
+
+pub fn delete(
+    tables: Vec<ObjectName>,
+    from: Vec<TableWithJoins>,
+    selection: Option<Expr>,
+    data_base_path: &PathBuf,
+) -> () {
 }
 
 pub fn create_table(name: ObjectName, columns: Vec<ColumnDef>, data_base_path: &PathBuf) -> () {
