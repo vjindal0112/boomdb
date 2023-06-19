@@ -1,6 +1,6 @@
 use core::panic;
 use csv::{Reader, WriterBuilder};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
@@ -11,6 +11,7 @@ use sqlparser::ast::{
 };
 
 use crate::common::Column;
+use crate::helpers;
 use crate::utils::{check_table_name, make_printable_table};
 
 fn parse_select_columns(
@@ -135,12 +136,57 @@ pub fn select(query: Query, data_base_path: &PathBuf) -> () {
 }
 
 pub fn delete(
-    tables: Vec<ObjectName>,
+    _tables: Vec<ObjectName>,
     from: Vec<TableWithJoins>,
     selection: Option<Expr>,
     data_base_path: &PathBuf,
 ) -> () {
+    let delete_from_table = from.get(0).unwrap();
+    let table_name_obj = match &delete_from_table.relation {
+        sqlparser::ast::TableFactor::Table { name, .. } => name,
+        _ => panic!("Expected a table name"),
+    };
+    let table_name = &table_name_obj.0.get(0).unwrap().value;
+    let file_path = match check_table_name(table_name.clone().to_string(), data_base_path) {
+        Ok(file_path) => file_path,
+        Err(_) => panic!("Table does not exist"),
+    };
+    let tmp_file_path = helpers::get_tmp_path(format!("{}{}", table_name, ".txt"));
+    let mut rdr = csv::Reader::from_path(file_path.clone()).unwrap();
+    let mut wtr = csv::Writer::from_path(tmp_file_path.clone()).unwrap();
+    // create header hashmap
+    let headers = rdr.headers().unwrap().clone();
+    wtr.write_record(&headers.clone())
+        .expect("Failed to write headers");
+    let mut header_to_index: HashMap<String, i32> = HashMap::new();
+    for (index, header) in headers.iter().enumerate() {
+        header_to_index.insert(header.to_string(), index as i32);
+    }
+    for result in rdr.records() {
+        match result {
+            Ok(record) => {
+                if !helpers::is_row_included(
+                    record.clone(),
+                    header_to_index.clone(),
+                    selection.clone(),
+                ) {
+                    wtr.write_record(&record).expect("Failed to write record");
+                }
+            }
+            Err(err) => {
+                // Here, "err" is a csv::Error
+                println!("An error occurred: {}", err);
+            }
+        }
+    }
+    wtr.flush().expect("Failed to flush writer");
+    // replace original file with tmp file
+    std::fs::copy(&tmp_file_path, &file_path).expect("Failed to copy file");
+    std::fs::remove_file(&tmp_file_path).expect("Failed to remove old file");
 }
+
+// parse binary tree recursively for each row
+// parse binary tree once and distill into one logical thing that can be applied to each row?
 
 pub fn create_table(name: ObjectName, columns: Vec<ColumnDef>, data_base_path: &PathBuf) -> () {
     println!("Create table: {} with columns:", name);
