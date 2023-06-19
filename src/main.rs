@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod common;
+pub mod helpers;
 pub mod utils;
 
 use std::env;
@@ -61,7 +62,7 @@ fn main() {
                     selection,
                     ..
                 } => {
-                    panic!("Delete supported yet");
+                    commands::delete(tables, from, selection, &data_base_path);
                 }
                 _ => {
                     panic!("Not supported yet");
